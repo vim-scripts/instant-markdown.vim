@@ -1,14 +1,26 @@
+" # Configuration
+if !exists('g:instant_markdown_slow')
+    let g:instant_markdown_slow = 0
+endif
+
 " # Utility Functions
+" Simple system wrapper that ignores empty second args
+function! s:system(cmd, stdin)
+    if strlen(a:stdin) == 0
+        call system(a:cmd)
+    else
+        call system(a:cmd, a:stdin)
+    endif
+endfu
+
 function! s:refreshView()
     let bufnr = expand('<bufnr>')
-    " Add a space to input to avoid complaints
-    call system("curl -X PUT -T - http://localhost:8090/ &>/dev/null &",
-                \ ' '.s:bufGetContents(bufnr))
+    call s:system("curl -X PUT -T - http://localhost:8090/ &>/dev/null &",
+                \ s:bufGetContents(bufnr))
 endfu
 
 function! s:startDaemon(initialMD)
-    " Add a space to input to avoid complaints
-    call system("instant-markdown-d &>/dev/null &", a:initialMD)
+    call s:system("instant-markdown-d &>/dev/null &", a:initialMD)
 endfu
 
 function! s:initDict()
@@ -88,7 +100,11 @@ endfu
 aug instant-markdown
     au! * <buffer>
     au BufEnter <buffer> call s:refreshView()
-    au CursorHold,CursorHoldI,CursorMoved,CursorMovedI <buffer> call s:temperedRefresh()
+    if g:instant_markdown_slow
+        au CursorHold,BufWrite,InsertLeave <buffer> call s:temperedRefresh()
+    else
+        au CursorHold,CursorHoldI,CursorMoved,CursorMovedI <buffer> call s:temperedRefresh()
+    endif
     au BufWinLeave <buffer> call s:popMarkdown()
     au BufwinEnter <buffer> call s:pushMarkdown()
 aug END
